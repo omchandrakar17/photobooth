@@ -1,0 +1,267 @@
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Special+Elite&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sketch: 'Caveat', cursive;
+  --font-display: 'Special Elite', cursive;
+  --font-mono: 'Space Mono', monospace;
+
+  --ink: #1a1a1a;
+  --paper: #f5f0e8;
+  --paper-dark: #ede8d8;
+  --accent: #1a1a1a;
+  --red: #c0392b;
+  --scratch: rgba(0,0,0,0.06);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  font-family: var(--font-sketch);
+  background: var(--paper);
+  color: var(--ink);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Paper texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: 
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.5;
+}
+
+/* Rough border utility */
+.border-sketch {
+  border: 2.5px solid var(--ink);
+  border-radius: 2px;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.border-sketch-sm {
+  border: 2px solid var(--ink);
+  border-radius: 2px;
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+/* Hand-drawn underline */
+.underline-sketch {
+  text-decoration: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='8'%3E%3Cpath d='M0 6 Q50 2 100 6 Q150 10 200 4' stroke='%231a1a1a' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-position: bottom;
+  background-size: 100px 8px;
+  padding-bottom: 6px;
+}
+
+/* Tape effect */
+.tape {
+  position: absolute;
+  width: 60px;
+  height: 22px;
+  background: rgba(255, 220, 100, 0.55);
+  border: 1px solid rgba(180, 150, 50, 0.3);
+  transform: rotate(-3deg);
+  z-index: 10;
+}
+
+/* Scratch lines on photos */
+.photo-scratch::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 3px,
+    rgba(255,255,255,0.015) 3px,
+    rgba(255,255,255,0.015) 4px
+  );
+  pointer-events: none;
+}
+
+/* Flash overlay */
+.flash-overlay {
+  position: fixed;
+  inset: 0;
+  background: white;
+  pointer-events: none;
+  z-index: 1000;
+  animation: flash 0.35s ease-out forwards;
+}
+
+@keyframes flash {
+  0% { opacity: 0; }
+  25% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Countdown number */
+.countdown-num {
+  font-family: var(--font-display);
+  font-size: clamp(6rem, 25vw, 12rem);
+  color: white;
+  text-shadow: 4px 4px 0 var(--ink), 6px 6px 20px rgba(0,0,0,0.5);
+  animation: countPop 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes countPop {
+  0% { transform: scale(0) rotate(-10deg); opacity: 0; }
+  50% { transform: scale(1.1) rotate(3deg); opacity: 1; }
+  80% { transform: scale(1) rotate(0deg); opacity: 1; }
+  100% { transform: scale(0.8) rotate(0deg); opacity: 0; }
+}
+
+/* Booth frame doodle border */
+.booth-frame {
+  position: relative;
+}
+
+.booth-frame::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border: 3px solid var(--ink);
+  border-radius: 3px;
+  transform: rotate(0.3deg);
+}
+
+.booth-frame::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border: 1.5px dashed var(--ink);
+  border-radius: 4px;
+  transform: rotate(-0.4deg);
+  opacity: 0.4;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--paper); }
+::-webkit-scrollbar-thumb { background: var(--ink); border-radius: 0; }
+
+/* Drawing cursor */
+.draw-mode { cursor: crosshair; }
+
+/* Sticker drag */
+.sticker-item {
+  cursor: grab;
+  user-select: none;
+  transition: transform 0.1s;
+}
+.sticker-item:hover { transform: scale(1.15) rotate(5deg); }
+.sticker-item:active { cursor: grabbing; transform: scale(0.95); }
+
+/* Toggle switch */
+.toggle-track {
+  width: 80px;
+  height: 36px;
+  background: var(--paper-dark);
+  border: 2px solid var(--ink);
+  border-radius: 18px;
+  box-shadow: 2px 2px 0 var(--ink);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 26px;
+  height: 26px;
+  background: var(--ink);
+  border-radius: 50%;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.toggle-thumb.active {
+  transform: translateX(44px);
+}
+
+/* Strip preview frame */
+.strip-preview {
+  background: white;
+  box-shadow: 
+    0 0 0 3px var(--ink),
+    6px 6px 0 var(--ink),
+    8px 8px 25px rgba(0,0,0,0.15);
+}
+
+/* Button base */
+.btn-sketch {
+  font-family: var(--font-sketch);
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 0.6em 1.4em;
+  background: var(--ink);
+  color: var(--paper);
+  border: 2.5px solid var(--ink);
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.3);
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+  border-radius: 2px;
+  position: relative;
+  outline: none;
+}
+
+.btn-sketch:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.3);
+}
+
+.btn-sketch:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 rgba(0,0,0,0.3);
+}
+
+.btn-sketch.outline {
+  background: transparent;
+  color: var(--ink);
+}
+
+.btn-sketch.outline:hover {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* Polaroid mini frames */
+.polaroid-mini {
+  background: white;
+  padding: 6px 6px 20px;
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.12), 0 0 0 1.5px #ccc;
+  transform: rotate(var(--rot, 0deg));
+}
+
+/* Loading dots */
+.loading-dots span {
+  animation: loadDot 1.2s infinite;
+  opacity: 0;
+}
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes loadDot {
+  0%, 80%, 100% { opacity: 0; }
+  40% { opacity: 1; }
+}
+
+/* Mobile safe area */
+@supports (padding: max(0px)) {
+  .safe-bottom { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+}
