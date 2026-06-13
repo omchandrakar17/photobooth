@@ -2,12 +2,14 @@
 
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { drawPhotoStrip, STRIP_WIDTH, getStripHeight, FrameStyle } from '@/lib/canvasEngine'
+import { AdjustedPhoto } from './PhotoAdjuster'
 import { STICKERS, stickerToDataUrl } from '@/lib/stickers'
 import { uploadToCloudinary } from '@/lib/cloudinary'
 import { savePhotoStrip } from '@/lib/supabase'
 
 interface EditorScreenProps {
   photos: string[]
+  adjustedPhotos?: AdjustedPhoto[]   // ← only new prop added
   filterType: 'bw' | 'color'
   frameStyle: FrameStyle
   onFinish: (finalImageUrl: string, shareId: string | null, shareUrl: string | null, caption: string | null) => void
@@ -18,7 +20,6 @@ type DrawTool = 'pen' | 'marker' | 'eraser'
 
 const COLORS = ['#1a1a1a', '#c0392b', '#2980b9', '#27ae60', '#f39c12', '#8e44ad', '#ffffff']
 
-// Same doodle bg pattern
 const DoodleBg = () => (
   <svg style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 0 }} xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -50,7 +51,7 @@ const DoodleBg = () => (
   </svg>
 )
 
-export default function EditorScreen({ photos, filterType, frameStyle, onFinish, onRetake }: EditorScreenProps) {
+export default function EditorScreen({ photos, adjustedPhotos, filterType, frameStyle, onFinish, onRetake }: EditorScreenProps) {
   const stripCanvasRef = useRef<HTMLCanvasElement>(null)
   const doodleCanvasRef = useRef<HTMLCanvasElement>(null)
   const lastPoint = useRef<{ x: number; y: number } | null>(null)
@@ -69,11 +70,17 @@ export default function EditorScreen({ photos, filterType, frameStyle, onFinish,
 
   const stripHeight = getStripHeight()
 
-  // Render photo strip
+  // Render photo strip — now passes adjustedPhotos if available
   useEffect(() => {
     const render = async () => {
       try {
-        const canvas = await drawPhotoStrip({ photos, filterType, frameStyle, brandText: 'photobooth' })
+        const canvas = await drawPhotoStrip({
+          photos,
+          adjustedPhotos,       // ← passed through to canvas engine
+          filterType,
+          frameStyle,
+          brandText: 'photobooth',
+        })
         if (stripCanvasRef.current) {
           const ctx = stripCanvasRef.current.getContext('2d')!
           stripCanvasRef.current.width = canvas.width
@@ -87,13 +94,12 @@ export default function EditorScreen({ photos, filterType, frameStyle, onFinish,
       }
     }
     render()
-  }, [photos, filterType, frameStyle])
+  }, [photos, adjustedPhotos, filterType, frameStyle])
 
   // Scale strip to fit the left column height
   useEffect(() => {
     const update = () => {
-      // On desktop: strip column is ~420px wide max, fit strip inside
-      const availableH = window.innerHeight - 80 // minus topbar
+      const availableH = window.innerHeight - 80
       const availableW = Math.min(window.innerWidth * 0.42, 420)
       const scaleByH = availableH / stripHeight
       const scaleByW = availableW / STRIP_WIDTH
@@ -200,16 +206,23 @@ export default function EditorScreen({ photos, filterType, frameStyle, onFinish,
     setIsSaving(true)
     try {
       const finalCanvas = await drawPhotoStrip({
-        photos, filterType, frameStyle, brandText: 'photobooth',
+        photos,
+        adjustedPhotos,       // ← baked into final output
+        filterType,
+        frameStyle,
+        brandText: 'photobooth',
         caption: captionVisible && caption ? caption : undefined,
       })
       const merged = document.createElement('canvas')
       merged.width = finalCanvas.width
       merged.height = finalCanvas.height
       const mctx = merged.getContext('2d')!
+      mctx.imageSmoothingEnabled = true
+      mctx.imageSmoothingQuality = 'high'
       mctx.drawImage(finalCanvas, 0, 0)
-      mctx.drawImage(doodleCanvasRef.current, 0, 0)
-      const base64 = merged.toDataURL('image/jpeg', 0.93)
+      // Scale doodle layer up to match hi-res canvas
+      mctx.drawImage(doodleCanvasRef.current, 0, 0, merged.width, merged.height)
+      const base64 = merged.toDataURL('image/png')  // PNG = lossless
 
       // Show final page immediately
       onFinish(base64, null, null, captionVisible && caption ? caption : null)
@@ -223,12 +236,12 @@ export default function EditorScreen({ photos, filterType, frameStyle, onFinish,
       }
     } catch (err) {
       console.error('handleFinish error:', err)
-      const fallback = stripCanvasRef.current?.toDataURL('image/jpeg', 0.93) || ''
+      const fallback = stripCanvasRef.current?.toDataURL('image/png') || ''
       onFinish(fallback, null, null, captionVisible && caption ? caption : null)
     } finally {
       setIsSaving(false)
     }
-  }, [photos, filterType, frameStyle, caption, captionVisible, onFinish])
+  }, [photos, adjustedPhotos, filterType, frameStyle, caption, captionVisible, onFinish])
 
   const tabStyle = (tab: 'draw' | 'stickers'): React.CSSProperties => ({
     flex: 1, padding: '13px',
@@ -297,7 +310,6 @@ export default function EditorScreen({ photos, filterType, frameStyle, onFinish,
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingRight: 40, flex: '0 0 auto' }}>
             <div style={{ position: 'relative', width: STRIP_WIDTH * scale, height: stripHeight * scale }}>
 
-              {/* Photo strip layer */}
               <canvas
                 ref={stripCanvasRef}
                 width={STRIP_WIDTH}
@@ -305,7 +317,6 @@ export default function EditorScreen({ photos, filterType, frameStyle, onFinish,
                 style={{ position: 'absolute', top: 0, left: 0, width: STRIP_WIDTH * scale, height: stripHeight * scale }}
               />
 
-              {/* Doodle layer */}
               <canvas
                 ref={doodleCanvasRef}
                 width={STRIP_WIDTH}
@@ -325,7 +336,6 @@ export default function EditorScreen({ photos, filterType, frameStyle, onFinish,
                 onTouchEnd={activeTab === 'draw' ? endDraw : undefined}
               />
 
-              {/* Loading overlay */}
               {!isStripReady && (
                 <div style={{
                   position: 'absolute', inset: 0,
@@ -338,7 +348,6 @@ export default function EditorScreen({ photos, filterType, frameStyle, onFinish,
               )}
             </div>
 
-            {/* Hint under strip */}
             {isStripReady && activeTab === 'draw' && (
               <p style={{ fontFamily: 'Caveat, cursive', fontSize: '0.88rem', opacity: 0.35, marginTop: 10, textAlign: 'center' }}>
                 draw directly on the strip ↑
@@ -361,7 +370,7 @@ export default function EditorScreen({ photos, filterType, frameStyle, onFinish,
             overflow: 'hidden',
           }}>
 
-            {/* ── Caption bar ── */}
+            {/* Caption bar */}
             <div style={{
               padding: '12px 18px',
               borderBottom: '2px solid #1a1a1a',
@@ -416,17 +425,15 @@ export default function EditorScreen({ photos, filterType, frameStyle, onFinish,
               )}
             </div>
 
-            {/* ── Tab switcher ── */}
+            {/* Tab switcher */}
             <div style={{ display: 'flex', borderBottom: '2px solid #1a1a1a' }}>
               <button onClick={() => setActiveTab('draw')} style={tabStyle('draw')}>✏ draw</button>
               <button onClick={() => setActiveTab('stickers')} style={tabStyle('stickers')}>✦ stickers</button>
             </div>
 
-            {/* ── Draw tools ── */}
+            {/* Draw tools */}
             {activeTab === 'draw' && (
               <div style={{ padding: '20px 20px', display: 'flex', flexDirection: 'column', gap: 18 }}>
-
-                {/* Tool selector */}
                 <div>
                   <div style={{ fontFamily: 'Caveat, cursive', fontSize: '0.88rem', opacity: 0.45, marginBottom: 8 }}>tool</div>
                   <div style={{ display: 'flex', gap: 8 }}>
@@ -448,7 +455,6 @@ export default function EditorScreen({ photos, filterType, frameStyle, onFinish,
                   </div>
                 </div>
 
-                {/* Color picker */}
                 <div>
                   <div style={{ fontFamily: 'Caveat, cursive', fontSize: '0.88rem', opacity: 0.45, marginBottom: 10 }}>color</div>
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -463,7 +469,6 @@ export default function EditorScreen({ photos, filterType, frameStyle, onFinish,
                   </div>
                 </div>
 
-                {/* Brush size */}
                 <div>
                   <div style={{ fontFamily: 'Caveat, cursive', fontSize: '0.88rem', opacity: 0.45, marginBottom: 6 }}>
                     size: {drawSize}px
@@ -474,7 +479,6 @@ export default function EditorScreen({ photos, filterType, frameStyle, onFinish,
                   />
                 </div>
 
-                {/* Clear */}
                 <button onClick={clearDoodles} style={{
                   fontFamily: 'Caveat, cursive', fontWeight: 700, fontSize: '1rem',
                   padding: '0.6em',
@@ -488,7 +492,7 @@ export default function EditorScreen({ photos, filterType, frameStyle, onFinish,
               </div>
             )}
 
-            {/* ── Stickers ── */}
+            {/* Stickers */}
             {activeTab === 'stickers' && (
               <div style={{ padding: '20px 20px' }}>
                 <p style={{ fontFamily: 'Caveat, cursive', fontSize: '0.88rem', opacity: 0.45, marginBottom: 14 }}>

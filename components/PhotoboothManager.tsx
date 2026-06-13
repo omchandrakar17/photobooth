@@ -4,27 +4,30 @@ import { useState, useCallback } from 'react'
 import StoreFront from './StoreFront'
 import SetupScreen from './SetupScreen'
 import CaptureScreen from './CaptureScreen'
+import PhotoAdjuster, { AdjustedPhoto } from './PhotoAdjuster'
 import EditorScreen from './EditorScreen'
 import FinalScreen from './FinalScreen'
 import { FrameStyle } from '@/lib/canvasEngine'
 
-export type Step = 'storefront' | 'setup' | 'capture' | 'editor' | 'final'
+export type Step = 'storefront' | 'setup' | 'capture' | 'adjust' | 'editor' | 'final'
 export type FilterType = 'bw' | 'color'
 
 export interface PhotoboothState {
   step: Step
-  photos: string[]          // array of 4 base64 photo data URLs
+  photos: string[]
+  adjustedPhotos: AdjustedPhoto[]
   filterType: FilterType
   frameStyle: FrameStyle
-  finalImageUrl: string | null   // merged canvas + doodles
-  shareId: string | null         // Supabase UUID
-  shareUrl: string | null        // Cloudinary hosted URL
+  finalImageUrl: string | null
+  shareId: string | null
+  shareUrl: string | null
   caption: string | null
 }
 
 const initialState: PhotoboothState = {
   step: 'storefront',
   photos: [],
+  adjustedPhotos: [],
   filterType: 'bw',
   frameStyle: 'classic',
   finalImageUrl: null,
@@ -40,8 +43,14 @@ export default function PhotoboothManager() {
     setState(prev => ({ ...prev, step }))
   }, [])
 
+  // After capture → go to adjust step
   const setPhotos = useCallback((photos: string[]) => {
-    setState(prev => ({ ...prev, photos, step: 'editor' }))
+    setState(prev => ({ ...prev, photos, step: 'adjust' }))
+  }, [])
+
+  // After adjusting all 4 → go to editor
+  const setAdjusted = useCallback((adjustedPhotos: AdjustedPhoto[]) => {
+    setState(prev => ({ ...prev, adjustedPhotos, step: 'editor' }))
   }, [])
 
   const setFilter = useCallback((filterType: FilterType) => {
@@ -72,10 +81,10 @@ export default function PhotoboothManager() {
     setState(initialState)
   }, [])
 
-  const { step, photos, filterType, frameStyle, finalImageUrl, shareId, shareUrl, caption } = state
+  const { step, photos, adjustedPhotos, filterType, frameStyle, finalImageUrl, shareId, shareUrl, caption } = state
 
   return (
-    <main className="min-h-screen min-h-dvh flex flex-col items-center justify-center">
+    <main className=" min-h-dvh flex flex-col items-center justify-center">
       {step === 'storefront' && (
         <StoreFront onEnter={() => goTo('setup')} />
       )}
@@ -96,9 +105,18 @@ export default function PhotoboothManager() {
           onBack={() => goTo('setup')}
         />
       )}
+      {step === 'adjust' && (
+        <PhotoAdjuster
+          photos={photos}
+          filterType={filterType}
+          onComplete={setAdjusted}
+          onBack={() => goTo('capture')}
+        />
+      )}
       {step === 'editor' && (
         <EditorScreen
           photos={photos}
+          adjustedPhotos={adjustedPhotos}
           filterType={filterType}
           frameStyle={frameStyle}
           onFinish={setFinalResult}
